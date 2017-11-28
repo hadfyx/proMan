@@ -1,0 +1,34 @@
+TO DO
+- split up into modules for easier maintenance
+- lots of refactoring...
+- implement a query class to handle all database communications
+  (currently all over the place and using both sqlite and QtSql query methods)
+- remote control (cmd.txt) update trigger mostly not working
+- create a proper password routine
+- don't use globals
+
+v 1.3.1
+- FIXED email parsing (getMail failure in recordMail) crashing the app when can't access the file
+
+v 1.3.0
+- FIXED in global view, when no rows are available, getMail crashes the app
+
+v 1.2.9m
+- critical update: email parsing function returned empty results resulting in application crash
+
+v 1.2.8m
+- implemented email integration
+- set permanent user
+- added while model.canFetchMore()
+
+v 1.2.7
+- added remote control (cmd.txt)
+- fixed the 270 record display limit bug with model.fetchMore()
+
+v 1.2.6b
+- added backup function
+
+v 1.2.5
+- correct history records
+- priority set to default on Completion
+- projects picked up from other people from Completed tab go live automatically
