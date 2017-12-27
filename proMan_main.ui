@@ -85,6 +85,20 @@
          </widget>
         </item>
         <item>
+         <widget class="Line" name="line_3">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="chb_Colours">
+          <property name="text">
+           <string>Show Colours</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <spacer name="horizontalSpacer_2">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -152,6 +166,9 @@
       </property>
       <property name="horizontalScrollMode">
        <enum>QAbstractItemView::ScrollPerItem</enum>
+      </property>
+      <property name="sortingEnabled">
+       <bool>true</bool>
       </property>
       <attribute name="horizontalHeaderDefaultSectionSize">
        <number>75</number>

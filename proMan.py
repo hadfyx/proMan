@@ -54,7 +54,7 @@ userIni = setDir + '\\user.ini'
 appIni = setDir + '\\app.ini'
 mailIni = setDir + '\\mail.ini'
 updateBat = setDir + '\\update.bat'
-appName = 'proMan v1.3.1' + ' - '
+appName = 'proMan v1.3.2' + ' - '
 # GLOBALS #
 
 
@@ -78,6 +78,33 @@ class recInfo():
     status = 'In Progress'
     home = ''
     
+class Colour():
+    
+    colours =   {
+                'blue': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(73, 153, 212, 120))),
+                'red': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(215, 25, 28, 120))),
+                'purple': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(104, 80, 173, 120))),
+                'green': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(26, 150, 65, 120))),
+                'orange': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(235, 117, 21, 120))),
+                'pink': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(190, 44, 123, 120)))
+                }
+    
+    defaultColours ={
+                    'None': None,
+                    'green': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(0, 255, 0, 60))),
+                    'yellow': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(255, 255, 0, 90))),
+                    'red': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(255, 0, 0, 60))),
+                    'grey': QtCore.QVariant(QtGui.QBrush(QtGui.QColor(QtCore.Qt.lightGray)))
+                    }
+     
+    def getColour(self, name):
+        if name in self.colours: return self.colours[name]
+        else: return None
+        
+    def getDefaultColour(self, name):
+        if name in self.defaultColours: return self.defaultColours[name]
+        else: return None
+        
   
 class mainWindow(QMainWindow):
     '''
@@ -100,7 +127,7 @@ class mainWindow(QMainWindow):
     15 - Notes
     16 - Status
     17 - Home
-    18 - Info_A
+    18 - Info_A # Used for row Colour Coding
     19 - Info_B
     20 - Info_C
     21 - Info_D
@@ -119,6 +146,7 @@ class mainWindow(QMainWindow):
         self.userSetFlag = False
         self.newStatus = recInfo.status
         self.historyList = []
+        self.homeColumnMoved = False
         
         action = self.ui.menuFile.addAction('&Exit')
         action.triggered.connect(qApp.quit)
@@ -128,7 +156,6 @@ class mainWindow(QMainWindow):
         self.ui.but_new.clicked.connect(self.openRecord)
         self.ui.but_del.clicked.connect(self.delRecord)
         self.ui.lin_search.textChanged.connect(self.searchRecord)
-        #self.ui.tbl_View.horizontalHeader().sortIndicatorChanged.connect(self.getColumn)
         self.ui.tbl_View.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.ui.tbl_View.customContextMenuRequested.connect(self.popUp)
         self.ui.chb_Global.stateChanged.connect(self.viewFilter)
@@ -137,6 +164,10 @@ class mainWindow(QMainWindow):
         self.ui.cbx_status.currentIndexChanged.connect(self.filterRows)
         self.ui.chb_Mail.stateChanged.connect(self.showMail)
         self.ui.but_setUser.clicked.connect(self.setUser)
+        self.ui.chb_Colours.stateChanged.connect(self.setupDbView)
+        self.ui.tbl_View.doubleClicked.connect(self.goToProjectDirectory)
+        # implement sticky sorting later
+        self.ui.tbl_View.horizontalHeader().sectionClicked.connect(self.getColumnSorting)
             
         if self.getSettings():
             self.setupDbView()
@@ -148,8 +179,23 @@ class mainWindow(QMainWindow):
             if currUser:
                 recInfo.user = currUser
                 print(recInfo.user)
-        
             self.mailWatch()
+    
+    # implement sticky sorting later
+    def getColumnSorting(self):
+        column = self.ui.tbl_View.selectionModel().currentIndex().column()
+        if column < 0:
+            pass
+        sort = self.ui.tbl_View.horizontalHeader().sortIndicatorOrder()
+        print(column, sort)
+        
+    def goToProjectDirectory(self):
+        column = self.ui.tbl_View.selectionModel().currentIndex().column()
+        if column == 4:
+            self.goPlaces(5)
+            
+    def setColumnSorting(self, column, sort):
+        self.ui.tbl_View.horizontalHeader().setSortIndicator(column, sort)
     
     def mailWatch(self):
         if mailList:
@@ -403,7 +449,6 @@ class mainWindow(QMainWindow):
                 query.bindValue(':pr', newHist)
                 query.bindValue(':id', recInfo.Id)
                 query.exec_()
-                #self.sourceModel.select()
         except: print ('Could not update history')
 
     def popUp(self, pos):
@@ -419,9 +464,17 @@ class mainWindow(QMainWindow):
             query.exec_()
             self.updateChanges()
         
+        def setColour(name):
+            query = QtSql.QSqlQuery()
+            query.prepare("UPDATE Projects SET Info_A=:c WHERE ID=:id")
+            query.bindValue(':c', name)
+            query.bindValue(':id', recInfo.Id)
+            query.exec_()
+            self.updateChanges()
+            
+        
         table = self.ui.tbl_View
         if table.selectionModel().selection():
-            #recInfo.Id = table.model().index(self.currRow, 0).data()
             menu = QMenu()
             clickProj = menu.addAction('Go to Project')
             clickRend = menu.addAction('Go to Render')
@@ -433,8 +486,26 @@ class mainWindow(QMainWindow):
             other = statusMenu.addMenu('Other...')
             sign = other.addAction('Signed Off')
             menu.addSeparator()
+            
+            colourMenu = menu.addMenu('Colour')
+            noColour = colourMenu.addAction('None')
+            colourMenu.addSeparator()
+            colourKeys = sorted(Colour.colours.keys())
+            for name in colourKeys:
+                colourMenu.addAction(name)
+            menu.addSeparator()
+            
             clickProp = menu.addAction('Properties')
             action = menu.exec_(table.mapToGlobal(pos))
+            
+            try:
+                if action == noColour: setColour('')
+                elif action.text() in colourKeys:
+                    if Colour.colours[action.text()]:
+                        setColour(action.text())
+                    else: setColour('')
+            except: pass
+                
             if action == inPr:
                 changeStatus('In Progress')
             elif action == comp:
@@ -487,7 +558,7 @@ class mainWindow(QMainWindow):
                 self.newRec.ui.cbx_userList.setCurrentIndex(self.ui.cbx_user.currentIndex())
                 self.newRec.ui.but_OK.clicked.connect(self.editRecord) # connect recordWindow.but_OK to mainWindow.editRecord
                 
-                # apply parameters)
+                # apply parameters
                 if self.historyList:
                     self.newRec.ui.lst_history.addItems(self.historyList)
                 self.newRec.ui.lst_history.setSortingEnabled(True)
@@ -550,8 +621,6 @@ class mainWindow(QMainWindow):
     
     def searchRecord(self):
         self.model.setFilterRegExp(QtCore.QRegExp(self.ui.lin_search.text(), QtCore.Qt.CaseInsensitive, QtCore.QRegExp.FixedString))
-        #self.model.setFilterRegExp(QtCore.QRegExp(self.ui.lin_search.text())
-        #self.model.setFilterKeyColumn(self.currColumn)
         self.filterRows()
 
     def openSettings(self): # OPEN SETTINGS
@@ -624,6 +693,9 @@ class mainWindow(QMainWindow):
     def resizeTable(self):
         table = self.ui.tbl_View
         w = 45
+        if table.model().headerData(17, QtCore.Qt.Horizontal) == 'Home' and not self.homeColumnMoved:
+            table.horizontalHeader().moveSection(17,15) # move the Home column
+            self.homeColumnMoved = True # a workaround for Home column jumping back and forth
         for i in (0,1,3,8,9,10,12,13,17): # fixed columns
             table.setColumnWidth(i, w)
             table.horizontalHeader().setSectionResizeMode(i, QHeaderView.Fixed)
@@ -639,7 +711,6 @@ class mainWindow(QMainWindow):
     def viewFilter(self):
         table = self.ui.tbl_View
         table.setColumnHidden(2,not self.ui.chb_Global.isChecked())
-        #table.setColumnHidden(16,not self.ui.chb_Global.isChecked())
         self.ui.cbx_user.setEnabled(not self.ui.chb_Global.isChecked())
         if not self.ui.chb_Global.isChecked():
             recInfo.user = self.ui.cbx_user.currentText()
@@ -672,8 +743,6 @@ class mainWindow(QMainWindow):
             self.initializeModel()
             table = self.ui.tbl_View
             table.setModel(self.model)
-            if table.model().headerData(17, QtCore.Qt.Horizontal) == 'Home':
-                table.horizontalHeader().moveSection(17,15) # move the Home column
             table.setSortingEnabled(True)
             self.resizeTable()
             title = (appName + '[ ' + currUser + ' ]')
@@ -681,7 +750,9 @@ class mainWindow(QMainWindow):
             self.dbWatcher = QtCore.QFileSystemWatcher() # watch for file changes
             self.dbWatcher.addPath(os.path.dirname(dbPath))
             self.dbWatcher.directoryChanged.connect(self.updateChanges)
-            table.selectionModel().selectionChanged.connect(self.getRow) # get the row index
+            self.setColumnSorting(3, 1)
+            # This needs to be here. Each time setupDbView is called selectionChanged needs to be re-connected
+            self.ui.tbl_View.selectionModel().selectionChanged.connect(self.getRow)
     
     def updateChanges(self):
         self.remoteControl()
@@ -692,6 +763,10 @@ class mainWindow(QMainWindow):
         self.displayMail()
     
     class MySqlModel(QtSql.QSqlTableModel): # centre the cell data, disable some columns and set colours
+        
+        def __init__(self, useColour=False):
+            super().__init__()
+            self.useColour = useColour
         
         def data(self, index, role=QtCore.Qt.DisplayRole):
             if not index.isValid():
@@ -704,16 +779,20 @@ class mainWindow(QMainWindow):
             elif role == QtCore.Qt.BackgroundRole:
                 column13_data = index.sibling(index.row(), 13).data() # 'revision' column colour
                 column17_data = index.sibling(index.row(), 17).data() # 'home' column colour
+                column18_data = index.sibling(index.row(), 18).data() # Colour data
                 if index.column() == 13:
                     if column13_data == 0:
-                        return QtCore.QVariant(QtGui.QBrush(QtGui.QColor(0, 255, 0, 60))) # green
+                        return Colour().getDefaultColour('green')
                     if column13_data > 0 and column13_data < 5:
-                        return QtCore.QVariant(QtGui.QBrush(QtGui.QColor(255, 255, 0, 90))) # yellow
+                        return Colour().getDefaultColour('yellow')
                     if column13_data > 4:
-                        return QtCore.QVariant(QtGui.QBrush(QtGui.QColor(255, 0, 0, 60))) # red
+                        return Colour().getDefaultColour('red')
                 if index.column() != 13: # don't colour revision column
                     if column17_data:
-                        return QtCore.QVariant(QtGui.QBrush(QtGui.QColor(QtCore.Qt.lightGray)))
+                        return Colour().getDefaultColour('grey')
+                    else:
+                        if self.useColour:
+                            return Colour().getColour(column18_data)
                     
             return QtSql.QSqlTableModel.data(self,index,role)
         
@@ -740,14 +819,9 @@ class mainWindow(QMainWindow):
     
 
     def initializeModel(self):
-        self.sourceModel = self.MySqlModel()
+        self.sourceModel = self.MySqlModel(useColour=self.ui.chb_Colours.isChecked())
         self.sourceModel.setTable('Projects')
         self.sourceModel.setEditStrategy(QtSql.QSqlTableModel.OnFieldChange)
-        
-        #self.sourceModel.select()
-        #for i in range(self.sourceModel.rowCount()):
-            #self.sourceModel.index(i,0).item() # QtCore.Qt.ItemIsSelectable
-            #print(table.setItemDelegateForColumn(0))
         
         self.userModel = QtSql.QSqlTableModel()
         self.userModel.setTable('Users')
@@ -979,7 +1053,6 @@ class settingsWindow(QDialog):
             self.initializeModel()
             table = self.ui.tbl_Users
             table.setModel(self.model)
-            table.sortByColumn(0, QtCore.Qt.AscendingOrder)
             table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
             self.resizeUserTable()
             self.dbWatcher = QtCore.QFileSystemWatcher() # watch for file changes
