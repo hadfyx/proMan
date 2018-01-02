@@ -147,6 +147,7 @@ class mainWindow(QMainWindow):
         self.newStatus = recInfo.status
         self.historyList = []
         self.homeColumnMoved = False
+        self.appSettings = {}
         
         action = self.ui.menuFile.addAction('&Exit')
         action.triggered.connect(qApp.quit)
@@ -166,8 +167,7 @@ class mainWindow(QMainWindow):
         self.ui.but_setUser.clicked.connect(self.setUser)
         self.ui.chb_Colours.stateChanged.connect(self.setupDbView)
         self.ui.tbl_View.doubleClicked.connect(self.goToProjectDirectory)
-        # implement sticky sorting later
-        self.ui.tbl_View.horizontalHeader().sectionClicked.connect(self.getColumnSorting)
+        self.ui.tbl_View.horizontalHeader().sectionClicked.connect(self.saveColumnSorting)
             
         if self.getSettings():
             self.setupDbView()
@@ -181,21 +181,38 @@ class mainWindow(QMainWindow):
                 print(recInfo.user)
             self.mailWatch()
     
-    # implement sticky sorting later
-    def getColumnSorting(self):
-        column = self.ui.tbl_View.selectionModel().currentIndex().column()
-        if column < 0:
-            pass
+    def saveColumnSorting(self):
+        column = self.ui.tbl_View.horizontalHeader().sortIndicatorSection()
         sort = self.ui.tbl_View.horizontalHeader().sortIndicatorOrder()
-        print(column, sort)
+        self.appSettings['columnSorting'] = str(column) + ',' + str(sort)
+        self.writeAppSettings(appIni, self.appSettings)
+        
+    def loadColumnSorting(self):
+        self.readAppSettings(appIni, self.appSettings)
+        if 'columnSorting' in self.appSettings.keys():
+            column, sort = self.appSettings['columnSorting'].strip().split(',')
+            self.ui.tbl_View.horizontalHeader().setSortIndicator(int(column), int(sort))
+        else:
+            self.ui.tbl_View.horizontalHeader().setSortIndicator(3, 1) # sort by priority
+    
+    def writeAppSettings(self, file, settingsDictionary):
+        with open(file, 'w') as settingsFile:
+            for key in settingsDictionary:
+                line = key + '=' + settingsDictionary[key] + '\n'
+                settingsFile.write(line)
+            
+    def readAppSettings(self, file, settingsDictionary):
+        with open(file, 'r') as settingsFile:
+            settingsDictionary.clear()
+            for line in settingsFile:
+                key, value = line.strip().split('=')
+                if key:
+                    settingsDictionary[key] = value
         
     def goToProjectDirectory(self):
         column = self.ui.tbl_View.selectionModel().currentIndex().column()
         if column == 4:
             self.goPlaces(5)
-            
-    def setColumnSorting(self, column, sort):
-        self.ui.tbl_View.horizontalHeader().setSortIndicator(column, sort)
     
     def mailWatch(self):
         if mailList:
@@ -405,13 +422,16 @@ class mainWindow(QMainWindow):
             d = open(dbIni, 'r')
             dbPath = d.readline()
             d.close()
+            
             u = open(userIni, 'r')
             currUser = u.readline()
             u.close()
+            
             m = open(mailIni, 'r')
             mailList = m.readline().split(',')
             mailList = list(filter(None, mailList))
             m.close()
+            
             if os.path.exists(dbPath):
                 return True
             else:
@@ -750,9 +770,9 @@ class mainWindow(QMainWindow):
             self.dbWatcher = QtCore.QFileSystemWatcher() # watch for file changes
             self.dbWatcher.addPath(os.path.dirname(dbPath))
             self.dbWatcher.directoryChanged.connect(self.updateChanges)
-            self.setColumnSorting(3, 1)
             # This needs to be here. Each time setupDbView is called selectionChanged needs to be re-connected
             self.ui.tbl_View.selectionModel().selectionChanged.connect(self.getRow)
+            self.loadColumnSorting()
     
     def updateChanges(self):
         self.remoteControl()
