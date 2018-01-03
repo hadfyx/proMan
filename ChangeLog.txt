@@ -10,7 +10,7 @@ TO DO
 v 1.3.2
 - added row colour-coding (Colour class)
 - added double-click on project field to navigate to the directory
-- added sticky column sorting (key=value written to app.ini)
+- added sticky settings (key=value written to app.ini)
 
 v 1.3.1
 - FIXED email parsing (getMail failure in recordMail) crashing the app when can't access the file

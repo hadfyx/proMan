@@ -94,7 +94,7 @@
         <item>
          <widget class="QCheckBox" name="chb_Colours">
           <property name="text">
-           <string>Show Colours</string>
+           <string>Display Colours</string>
           </property>
          </widget>
         </item>

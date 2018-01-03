@@ -163,19 +163,23 @@ class mainWindow(QMainWindow):
         self.ui.cbx_user.currentIndexChanged.connect(self.filterRows)
         self.ui.cbx_user.currentIndexChanged.connect(self.displayMail)
         self.ui.cbx_status.currentIndexChanged.connect(self.filterRows)
-        self.ui.chb_Mail.stateChanged.connect(self.showMail)
+        self.ui.chb_Mail.stateChanged.connect(self.showMailTab)
         self.ui.but_setUser.clicked.connect(self.setUser)
-        self.ui.chb_Colours.stateChanged.connect(self.setupDbView)
+        self.ui.chb_Colours.stateChanged.connect(self.saveColourState)
         self.ui.tbl_View.doubleClicked.connect(self.goToProjectDirectory)
         self.ui.tbl_View.horizontalHeader().sectionClicked.connect(self.saveColumnSorting)
             
         if self.getSettings():
+            self.readAppSettings(appIni, self.appSettings)
+            self.loadColumnSorting()
+            self.loadColourState()
             self.setupDbView()
             self.setFirstUser()
             self.filterRows()
             self.recordMail()
-            self.showMail()
+            self.showMailTab()
             self.displayMail()
+            
             if currUser:
                 recInfo.user = currUser
                 print(recInfo.user)
@@ -188,12 +192,25 @@ class mainWindow(QMainWindow):
         self.writeAppSettings(appIni, self.appSettings)
         
     def loadColumnSorting(self):
-        self.readAppSettings(appIni, self.appSettings)
         if 'columnSorting' in self.appSettings.keys():
             column, sort = self.appSettings['columnSorting'].strip().split(',')
             self.ui.tbl_View.horizontalHeader().setSortIndicator(int(column), int(sort))
         else:
             self.ui.tbl_View.horizontalHeader().setSortIndicator(3, 1) # sort by priority
+            
+    def saveColourState(self):
+        state = self.ui.chb_Colours.isChecked()
+        self.appSettings['useColour'] = str(state)
+        self.writeAppSettings(appIni, self.appSettings)
+        self.setupDbView() # reload mySQLModel
+    
+    def loadColourState(self):
+        if 'useColour' in self.appSettings.keys():
+            state = self.appSettings['useColour'].strip()
+            if state == 'True':
+                self.ui.chb_Colours.setChecked(True)
+            else:
+                self.ui.chb_Colours.setChecked(False)
     
     def writeAppSettings(self, file, settingsDictionary):
         with open(file, 'w') as settingsFile:
@@ -220,7 +237,7 @@ class mainWindow(QMainWindow):
             self.mailWatcher.addPath(mailList[0])
             self.mailWatcher.directoryChanged.connect(self.recordMail)
     
-    def showMail(self):
+    def showMailTab(self):
         if self.ui.chb_Mail.isChecked():
             self.ui.tw_Mail.show()
         else:
@@ -772,7 +789,6 @@ class mainWindow(QMainWindow):
             self.dbWatcher.directoryChanged.connect(self.updateChanges)
             # This needs to be here. Each time setupDbView is called selectionChanged needs to be re-connected
             self.ui.tbl_View.selectionModel().selectionChanged.connect(self.getRow)
-            self.loadColumnSorting()
     
     def updateChanges(self):
         self.remoteControl()
