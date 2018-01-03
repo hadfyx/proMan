@@ -96,6 +96,9 @@
           <property name="text">
            <string>Display Colours</string>
           </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
          </widget>
         </item>
         <item>

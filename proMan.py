@@ -39,7 +39,7 @@ Features:
 import sys, os, sqlite3, subprocess, time, pathlib, shutil, glob, ast
 from PyQt5 import QtCore, QtSql, QtGui
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QHeaderView, QFileDialog, \
-                            QMessageBox, QMenu, qApp, QTreeWidgetItem
+                            QMessageBox, QMenu, qApp, QTreeWidgetItem, QCheckBox
 from PyQt5.uic import loadUi
 from email.header import decode_header
 
@@ -170,15 +170,16 @@ class mainWindow(QMainWindow):
         self.ui.tbl_View.horizontalHeader().sectionClicked.connect(self.saveColumnSorting)
             
         if self.getSettings():
-            self.readAppSettings(appIni, self.appSettings)
-            self.loadColumnSorting()
-            self.loadColourState()
             self.setupDbView()
             self.setFirstUser()
             self.filterRows()
             self.recordMail()
             self.showMailTab()
             self.displayMail()
+            
+            self.readAppSettings(appIni, self.appSettings)
+            self.loadColumnSorting()
+            self.loadColourState()
             
             if currUser:
                 recInfo.user = currUser
@@ -202,7 +203,7 @@ class mainWindow(QMainWindow):
         state = self.ui.chb_Colours.isChecked()
         self.appSettings['useColour'] = str(state)
         self.writeAppSettings(appIni, self.appSettings)
-        self.setupDbView() # reload mySQLModel
+        self.updateChanges()
     
     def loadColourState(self):
         if 'useColour' in self.appSettings.keys():
@@ -800,9 +801,9 @@ class mainWindow(QMainWindow):
     
     class MySqlModel(QtSql.QSqlTableModel): # centre the cell data, disable some columns and set colours
         
-        def __init__(self, useColour=False):
+        def __init__(self, colourCheckBox=QCheckBox):
             super().__init__()
-            self.useColour = useColour
+            self.colourCheckBox = colourCheckBox
         
         def data(self, index, role=QtCore.Qt.DisplayRole):
             if not index.isValid():
@@ -827,7 +828,7 @@ class mainWindow(QMainWindow):
                     if column17_data:
                         return Colour().getDefaultColour('grey')
                     else:
-                        if self.useColour:
+                        if self.colourCheckBox.isChecked():
                             return Colour().getColour(column18_data)
                     
             return QtSql.QSqlTableModel.data(self,index,role)
@@ -855,7 +856,7 @@ class mainWindow(QMainWindow):
     
 
     def initializeModel(self):
-        self.sourceModel = self.MySqlModel(useColour=self.ui.chb_Colours.isChecked())
+        self.sourceModel = self.MySqlModel(colourCheckBox=self.ui.chb_Colours)
         self.sourceModel.setTable('Projects')
         self.sourceModel.setEditStrategy(QtSql.QSqlTableModel.OnFieldChange)
         
